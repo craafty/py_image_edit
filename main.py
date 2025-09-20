@@ -4,12 +4,12 @@ from PIL import Image
 img = Image.open("example.jpg")
 r, g, b = img.split()  # Split into individual channels
 
-# Reduce red by 50%
-g = g.point(lambda i: i * 0.0)
+# Reduce green by 50%
+g = g.point(lambda i: i * 0.5)
 
 # Recombine channels
 new_img = Image.merge("RGB", (r, g, b))
-new_img.save("reduced_red.jpg")
+new_img.save("example_new.jpg")
 
 """
 root = tk.Tk()
