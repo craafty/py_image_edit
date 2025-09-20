@@ -1,6 +1,7 @@
 import tkinter as tk
 from PIL import Image, ImageTk
 import time
+from imageFunctions import adjust_rgb
 
 class App():
 
@@ -11,14 +12,13 @@ class App():
         self.win_width, self.win_height = 800, 800
         self.margin = 40
         
-        img = Image.open("example.jpg")
-        self.resized_img = self.resize_for_window(img)
-        self.tk_image = ImageTk.PhotoImage(self.resized_img)
-        
-        self.labelImage = tk.Label(root, image=self.tk_image)
-        self.center_image()
+        self.draw_label_image("example.jpg")
 
-        self.button = tk.Button(root, text="save", command=self.save_func)
+        self.button = tk.Button(root, text="test", command=lambda: 
+            (
+                adjust_rgb("example.jpg", 1.0, 1.0, 0.0, "new_example.jpg"),
+                self.draw_label_image("new_example.jpg")
+            ))
         self.button.update_idletasks()  # calculate button width
         btn_width = self.button.winfo_reqwidth()
         btn_height = self.button.winfo_reqheight()
@@ -42,6 +42,12 @@ class App():
         img_width, img_height = self.resized_img.size
         self.labelImage.place(x=(self.win_width - img_width)//2,
                               y=(self.win_height - img_height)//2)
+
+    def draw_label_image(self, path):
+        self.resized_img = self.resize_for_window(Image.open(path))
+        self.tk_image = ImageTk.PhotoImage(self.resized_img)
+        self.labelImage = tk.Label(self.root, image=self.tk_image)
+        self.center_image()
 
     def save_func(self):
         print("saved the image")
