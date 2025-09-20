@@ -12,7 +12,23 @@ class App():
         self.win_width, self.win_height = 800, 800
         self.margin = 40
         
-        self.draw_image("example.jpg")
+        self.current_image = "example.jpg"
+        self.draw_image(self.current_image)
+
+        self.r_slider = tk.Scale(root, from_=0, to=2, resolution=0.1,
+                                 orient="horizontal", label="Red", command=self.update_image)
+        self.r_slider.set(1.0)
+        self.r_slider.place(x=100, y=700)
+
+        self.g_slider = tk.Scale(root, from_=0, to=2, resolution=0.1,
+                                 orient="horizontal", label="Green", command=self.update_image)
+        self.g_slider.set(1.0)
+        self.g_slider.place(x=300, y=700)
+
+        self.b_slider = tk.Scale(root, from_=0, to=2, resolution=0.1,
+                                 orient="horizontal", label="Blue", command=self.update_image)
+        self.b_slider.set(1.0)
+        self.b_slider.place(x=500, y=700)
 
         self.button = tk.Button(root, text="test", command=lambda: 
             (
@@ -46,9 +62,24 @@ class App():
     def draw_image(self, path):
         self.resized_img = self.resize_for_window(Image.open(path))
         self.tk_image = ImageTk.PhotoImage(self.resized_img)
-        self.labelImage = tk.Label(self.root, image=self.tk_image)
-        self.center_image()
+
+        if hasattr(self, "labelImage"):  # if label already exists, just update it
+            self.labelImage.configure(image=self.tk_image)
+            self.labelImage.image = self.tk_image
+            self.center_image()
+        else:  # first time, actually create it
+            self.labelImage = tk.Label(self.root, image=self.tk_image)
+            self.labelImage.image = self.tk_image
+            self.center_image()
+
 
     def save_func(self):
         print("saved the image")
 
+    def update_image(self, _=None):
+        r = self.r_slider.get()
+        g = self.g_slider.get()
+        b = self.b_slider.get()
+
+        adjust_rgb("example.jpg", r, g, b, "preview.jpg")
+        self.draw_image("preview.jpg")
