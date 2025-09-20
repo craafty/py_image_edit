@@ -106,8 +106,51 @@ def adjust_brightness_sharpness(image_path, brightness=1.0, sharpness=1.0, save_
     sharp_enhancer = ImageEnhance.Sharpness(img)
     img = sharp_enhancer.enhance(sharpness)
 
-    if save_path:
-        img.save(save_path)
+        if save_path:
+            img.save(save_path)
+
+        return img
+    from PIL import Image, ImageEnhance, ImageFilter
+
+    #Image Blur
+    def adjust_image(image_path, brightness=1.0, sharpness=1.0, blur=0.0, save_path=None):
+        """
+        Adjusts brightness, sharpness, and blur of an image.
+
+        Parameters:
+            image_path (str): Path to the input image.
+            brightness (float): Brightness factor.
+                                0.0 = completely black
+                                1.0 = original
+                                >1.0 = brighter
+            sharpness (float): Sharpness factor.
+                            0.0 = very blurry
+                            1.0 = original
+                            >1.0 = more sharp
+            blur (float): Blur radius for GaussianBlur.
+                        0.0 = no blur
+                        higher values = stronger blur
+            save_path (str, optional): If given, saves the edited image.
+
+        Returns:
+            PIL.Image.Image: The edited image.
+        """
+        img = Image.open(image_path).convert("RGB")
+
+        # Brightness
+        bright_enhancer = ImageEnhance.Brightness(img)
+        img = bright_enhancer.enhance(brightness)
+
+        # Sharpness
+        sharp_enhancer = ImageEnhance.Sharpness(img)
+        img = sharp_enhancer.enhance(sharpness)
+
+        # Blur
+        if blur > 0:
+            img = img.filter(ImageFilter.GaussianBlur(blur))
+
+        if save_path:
+            img.save(save_path)
 
     return img
 
