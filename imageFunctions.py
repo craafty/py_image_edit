@@ -3,14 +3,10 @@ from PIL import Image
     def rotate_image(input_path, output_path, degrees=90):
     # Open the image
     img = Image.open(input_path)
-
     # Rotate the image
     rotated_img = img.rotate(degrees, expand=True)
-
     # Save the new image
     rotated_img.save(output_path)
-
-    print(f"Rotated image saved to {output_path}")
 
 
     # Image Flipping
@@ -54,16 +50,9 @@ from PIL import Image
 
         return edited
 
-    if __name__ == "__main__":
-        output = adjust_rgb("example.jpg", r_factor=1.5, g_factor=0.7, b_factor=1.0, save_path="output.jpg")
-        output.show()
-
-    # saturation
-    from PIL import Image, ImageEnhance
-
-    def adjust_saturation(image_path, factor=1.0, save_path=None):
-        """
-        Adjusts the color saturation of an image.
+def adjust_saturation(image_path, factor=1.0, save_path=None):
+    """
+    Adjusts the color saturation of an image.
 
         Parameters:
             image_path (str): Path to the input image.
@@ -87,19 +76,9 @@ from PIL import Image
 
         return edited
 
-
-    # Example usage
-    if __name__ == "__main__":
-        # 0.0 = grayscale, 1.0 = original, 2.0 = super saturated
-        output = adjust_saturation("example.jpg", factor=2.0, save_path="saturated.jpg")
-        output.show()
-
-    # Enhancing the brightness and sharpness of the image
-    from PIL import Image, ImageEnhance
-
-    def adjust_brightness_sharpness(image_path, brightness=1.0, sharpness=1.0, save_path=None):
-        """
-        Adjusts the brightness and sharpness of an image.
+def adjust_brightness_sharpness(image_path, brightness=1.0, sharpness=1.0, save_path=None):
+    """
+    Adjusts the brightness and sharpness of an image.
 
         Parameters:
             image_path (str): Path to the input image.

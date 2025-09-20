@@ -1,8 +1,4 @@
-rgb color editing
-saturation
-contrast
 blurry
 edge detection?
 image rotation
-image flipping
 image cropping
