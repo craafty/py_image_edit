@@ -1,4 +1,4 @@
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter
 
 def rotate_image(input_path, output_path, degrees=90):
     img = Image.open(input_path)
@@ -109,7 +109,7 @@ def adjust_brightness_sharpness(image_path, brightness=1.0, sharpness=1.0, save_
     return img
 
 #Image Blur
-def adjust_image(image_path, brightness=1.0, sharpness=1.0, blur=0.0, save_path=None):
+def adjust_blur(image_path, blur=0.0, save_path=None):
     """
     Adjusts brightness, sharpness, and blur of an image.
 
@@ -132,15 +132,6 @@ def adjust_image(image_path, brightness=1.0, sharpness=1.0, blur=0.0, save_path=
         PIL.Image.Image: The edited image.
     """
     img = Image.open(image_path).convert("RGB")
-
-    # Brightness
-    bright_enhancer = ImageEnhance.Brightness(img)
-    img = bright_enhancer.enhance(brightness)
-
-    # Sharpness
-    sharp_enhancer = ImageEnhance.Sharpness(img)
-    img = sharp_enhancer.enhance(sharpness)
-
     # Blur
     if blur > 0:
         img = img.filter(ImageFilter.GaussianBlur(blur))
