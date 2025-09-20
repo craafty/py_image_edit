@@ -41,13 +41,6 @@ def adjust_rgb(image_path, r_factor=1.0, g_factor=1.0, b_factor=1.0, save_path=N
 
     return edited
 
-if __name__ == "__main__":
-    output = adjust_rgb("example.jpg", r_factor=1.5, g_factor=0.7, b_factor=1.0, save_path="output.jpg")
-    output.show()
-
-# saturation
-from PIL import Image, ImageEnhance
-
 def adjust_saturation(image_path, factor=1.0, save_path=None):
     """
     Adjusts the color saturation of an image.
@@ -73,16 +66,6 @@ def adjust_saturation(image_path, factor=1.0, save_path=None):
         edited.save(save_path)
 
     return edited
-
-
-# Example usage
-if __name__ == "__main__":
-    # 0.0 = grayscale, 1.0 = original, 2.0 = super saturated
-    output = adjust_saturation("example.jpg", factor=2.0, save_path="saturated.jpg")
-    output.show()
-
-# Enhancing the brightness and sharpness of the image
-from PIL import Image, ImageEnhance
 
 def adjust_brightness_sharpness(image_path, brightness=1.0, sharpness=1.0, save_path=None):
     """
