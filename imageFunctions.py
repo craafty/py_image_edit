@@ -1,5 +1,29 @@
 from PIL import Image, ImageEnhance, ImageFilter
 
+# Image Cropping
+def crop_image(image_path, crop_box, save_path=None):
+        """
+        Crops the image to the specified box.
+    
+        Parameters:
+            image_path (str): Path to the input image.
+            crop_box (tuple): (left, upper, right, lower) pixel coordinates.
+            save_path (str, optional): If given, saves the cropped image.
+    
+        Returns:
+            PIL.Image.Image: The cropped image.
+        """
+        img = Image.open(image_path)
+        width, height = img.size
+        left, upper, right, lower = crop_box
+        # Validate crop box
+        if not (0 <= left < right <= width and 0 <= upper < lower <= height):
+            raise ValueError("Crop box is out of image bounds.")
+        cropped_img = img.crop(crop_box)
+        if save_path:
+            cropped_img.save(save_path)
+        return cropped_img
+
 def rotate_image(input_path, output_path, degrees=90):
     img = Image.open(input_path)
     # Rotate the image
@@ -107,6 +131,9 @@ def adjust_brightness_sharpness(image_path, brightness=1.0, sharpness=1.0, save_
     if save_path:
         img.save(save_path)
     return img
+   
+
+
 
 #Image Blur
 def adjust_blur(image_path, blur=0.0, save_path=None):

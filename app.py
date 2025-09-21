@@ -1,6 +1,6 @@
 import tkinter as tk
 from PIL import Image, ImageTk
-from imageFunctions import (adjust_rgb, adjust_brightness_sharpness, adjust_saturation, adjust_blur)
+from imageFunctions import (adjust_rgb, adjust_brightness_sharpness, adjust_saturation, adjust_blur, crop_image)
 
 class App:
     def __init__(self, root):
@@ -17,6 +17,10 @@ class App:
         self.canvas.pack(pady=20)
         self.draw_image(self.current_image)
 
+        # --- Dynamic Panel Area ---
+        self.panel_frame = tk.Frame(self.root, bg="#3a3a3a")
+        self.panel_frame.pack(fill="x", padx=20, pady=10)
+
         # --- Buttons Row ---
         button_frame = tk.Frame(self.root, bg="#2c2c2c")
         button_frame.pack(pady=10)
@@ -27,6 +31,91 @@ class App:
         self.add_button(button_frame, "Blur", self.show_blur_panel)
         self.add_button(button_frame, "Reset", self.reset_image, bg="#f44336")  # red button
         self.add_button(button_frame, "Save As", self.save_as, bg="#2196F3")   # blue button
+        self.add_button(button_frame, "Crop", self.show_crop_panel, bg="#FF9800")  # orange button
+
+    def show_crop_panel(self):
+        self.clear_panel()
+        tk.Label(self.panel_frame, text="Crop Image", bg="#3a3a3a", fg="white").pack()
+
+        img = Image.open(self.current_image)
+        w, h = img.size
+
+        # Sliders for crop coordinates
+        self.left_slider = tk.Scale(self.panel_frame, from_=0, to=w-2, orient="horizontal", label="Left", command=self.update_crop_preview)
+        self.left_slider.set(0)
+        self.left_slider.pack(fill="x", padx=20)
+
+        self.upper_slider = tk.Scale(self.panel_frame, from_=0, to=h-2, orient="horizontal", label="Upper", command=self.update_crop_preview)
+        self.upper_slider.set(0)
+        self.upper_slider.pack(fill="x", padx=20)
+
+        self.right_slider = tk.Scale(self.panel_frame, from_=1, to=w, orient="horizontal", label="Right", command=self.update_crop_preview)
+        self.right_slider.set(w)
+        self.right_slider.pack(fill="x", padx=20)
+
+        self.lower_slider = tk.Scale(self.panel_frame, from_=1, to=h, orient="horizontal", label="Lower", command=self.update_crop_preview)
+        self.lower_slider.set(h)
+        self.lower_slider.pack(fill="x", padx=20)
+
+        # Save Crop button
+        tk.Button(self.panel_frame, text="Save Crop", command=self.save_crop, bg="#2196F3", fg="white").pack(pady=10)
+        # Reset button
+        tk.Button(self.panel_frame, text="Reset Crop", command=self.reset_crop_sliders, bg="#f44336", fg="white").pack(pady=10)
+        # Back to Main Menu button
+        tk.Button(self.panel_frame, text="Back to Main Menu", command=self.show_main_menu, bg="#607D8B", fg="white").pack(pady=10)
+
+        # Initial preview
+        self.update_crop_preview()
+
+    def show_main_menu(self):
+        self.clear_panel()
+        tk.Label(self.panel_frame, text="Welcome! Select an editing option above.", bg="#3a3a3a", fg="white", font=("Arial", 14)).pack(pady=20)
+
+    def save_crop(self):
+        from tkinter import filedialog, messagebox
+        left = self.left_slider.get()
+        upper = self.upper_slider.get()
+        right = self.right_slider.get()
+        lower = self.lower_slider.get()
+        img = Image.open(self.current_image)
+        w, h = img.size
+        if left < right <= w and upper < lower <= h:
+            cropped_img = img.crop((left, upper, right, lower))
+            save_path = filedialog.asksaveasfilename(
+                defaultextension=".jpg",
+                filetypes=[("JPEG files", "*.jpg"), ("PNG files", "*.png"), ("All files", "*.*")]
+            )
+            if save_path:
+                cropped_img.save(save_path)
+                messagebox.showinfo("Save Crop", f"Cropped image saved to:\n{save_path}")
+        else:
+            messagebox.showerror("Save Crop", "Invalid crop coordinates.")
+
+    def update_crop_preview(self, *_):
+        left = self.left_slider.get()
+        upper = self.upper_slider.get()
+        right = self.right_slider.get()
+        lower = self.lower_slider.get()
+        # Validate crop box
+        img = Image.open(self.current_image)
+        w, h = img.size
+        if left < right <= w and upper < lower <= h:
+            try:
+                crop_image(self.current_image, (left, upper, right, lower), save_path=self.preview_image)
+                self.draw_image(self.preview_image)
+            except Exception:
+                self.draw_image(self.current_image)
+        else:
+            self.draw_image(self.current_image)
+
+    def reset_crop_sliders(self):
+        img = Image.open(self.current_image)
+        w, h = img.size
+        self.left_slider.set(0)
+        self.upper_slider.set(0)
+        self.right_slider.set(w)
+        self.lower_slider.set(h)
+        self.update_crop_preview()
 
         # --- Dynamic Panel Area ---
         self.panel_frame = tk.Frame(self.root, bg="#3a3a3a")
@@ -138,6 +227,20 @@ class App:
         )
         if save_path:
             Image.open(self.preview_image).save(save_path)
+
+
+    def crop_example(self):
+        """Crop the image to a fixed rectangle and show result."""
+        from tkinter import messagebox
+        try:
+            img = Image.open(self.current_image)
+            w, h = img.size
+            crop_box = (100, 100, w-100, h-100)
+            cropped = crop_image(self.current_image, crop_box, save_path=self.preview_image)
+            self.draw_image(self.preview_image)
+            messagebox.showinfo("Crop Example", f"Cropping successful!\nImage size: {w}x{h}\nCrop box: {crop_box}")
+        except Exception as e:
+            messagebox.showerror("Crop Error", f"Error during cropping: {e}")
 
 
 if __name__ == "__main__":
