@@ -1,97 +1,215 @@
 import tkinter as tk
+from tkinter import filedialog
 from PIL import Image, ImageTk
-import time
-from imageFunctions import adjust_rgb, adjust_brightness_sharpness, adjust_saturation, rotate_image, flip_image, adjust_blur
+from image_functions import (
+    adjust_rgb,
+    adjust_saturation,
+    adjust_brightness,
+    adjust_sharpness,
+    adjust_blur,
+    stretch_image,
+)
 
-class App():
-
+class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("image editor")
+        self.root.title("Image Editor")
         self.root.geometry("1000x800")
-        
-        self.current_image = "example.jpg"
-        self.preview_image = "preview.jpg"
+        self.root.configure(bg="#2c2c2c")
 
-        # --- Canvas for image ---
-        self.canvas = tk.Label(root)
-        self.canvas.pack(pady=20)
+        # Load default image
+        self.original_img = Image.open("example.jpg").convert("RGB")
+        self.current_img = self.original_img.copy()
 
-        self.draw_image(self.current_image)
+        # Canvas for image (use label; we'll scale the image to fit available window)
+        self.canvas = tk.Label(root, bg="#2c2c2c")
+        self.canvas.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # --- Settings panels ---
-        self.create_rgb_panel()
-        self.create_brightness_panel()
-        self.create_saturation_panel()
-        
-        
-    # scales image to fit inside window
-    def resize_for_window(self, img):
-        img_width, img_height = img.size
+        # Buttons
+        button_frame = tk.Frame(root, bg="#2c2c2c")
+        button_frame.pack(fill="x", pady=(0, 5))
+        self.add_button(button_frame, "Open Image", self.open_image)
+        self.add_button(button_frame, "RGB", self.show_rgb_panel)
+        self.add_button(button_frame, "Brightness", self.show_brightness_panel)
+        self.add_button(button_frame, "Saturation", self.show_saturation_panel)
+        self.add_button(button_frame, "Blur", self.show_blur_panel)
+        self.add_button(button_frame, "Stretch", self.show_stretch_panel)
+        self.add_button(button_frame, "Reset", self.reset_image, bg="#f44336")
+        self.add_button(button_frame, "Save As", self.save_as, bg="#2196F3")
 
-        available_width = self.win_width - 2 * self.margin
-        available_height = self.win_height - 2 * self.margin
+        # Panel frame (sliders will appear here)
+        self.panel_frame = tk.Frame(root, bg="#3a3a3a")
+        self.panel_frame.pack(fill="x", padx=20, pady=(0, 10))
 
-        scale = min(available_width / img_width, available_height / img_height)
-        new_width = int(img_width * scale)
-        new_height = int(img_height * scale)
-        return img.resize((new_width, new_height))
+        # Create all sliders once
+        self.create_sliders()
 
-    # centers image in window
-    def center_image(self):
-        img_width, img_height = self.resized_img.size
-        self.labelImage.place(x=(self.win_width - img_width)//2,
-                              y=(self.win_height - img_height)//2)
+        # initial draw
+        self.update_image()
 
-    def draw_image(self, path):
-        img = Image.open(path)
-        img = img.resize((600,400))  # scale to fit
-        self.tk_image = ImageTk.PhotoImage(img)
+    # --- Image display: scale to fit available area but preserve stretched aspect ratio ---
+    def draw_image(self, img):
+        # ensure geometry info is up to date
+        self.root.update_idletasks()
+
+        # compute available area (leave margins for UI)
+        avail_w = max(self.root.winfo_width() - 40, 200)
+        # estimate available height: window height minus space for controls
+        # panel_frame + button_frame heights are small; give a safe default
+        avail_h = max(self.root.winfo_height() - self.panel_frame.winfo_height() - 120, 200)
+
+        img_w, img_h = img.size
+        # scale down/up proportionally so the stretched image fits inside available area
+        scale = min(avail_w / img_w, avail_h / img_h)
+        # avoid zero
+        new_w = max(1, int(img_w * scale))
+        new_h = max(1, int(img_h * scale))
+
+        img_resized = img.resize((new_w, new_h), Image.LANCZOS)
+        self.tk_image = ImageTk.PhotoImage(img_resized)
         self.canvas.configure(image=self.tk_image)
         self.canvas.image = self.tk_image
 
-    def update_image(self, func, *args):
-        func(self.current_image, *args, save_path=self.preview_image)
-        self.draw_image(self.preview_image)
+    # --- Update image using all slider values ---
+    def update_image(self, _=None):
+        # start from original each time (edits are cumulative in this pipeline)
+        img = self.original_img.copy()
 
-    def create_rgb_panel(self):
-        frame = tk.LabelFrame(self.root, text="RGB Adjustments", padx=10, pady=10)
-        frame.pack(fill="x", padx=20, pady=5)
+        # color / enhancements
+        img = adjust_rgb(img, self.r_slider.get(), self.g_slider.get(), self.b_slider.get())
+        img = adjust_brightness(img, self.bright_slider.get())
+        img = adjust_sharpness(img, self.sharp_slider.get())
+        img = adjust_saturation(img, self.sat_slider.get())
+        img = adjust_blur(img, self.blur_slider.get())
 
-        self.r_slider = tk.Scale(frame, from_=0, to=2, resolution=0.1, orient="horizontal", label="Red",
-                                 command=lambda _: self.update_image(adjust_rgb, self.r_slider.get(), self.g_slider.get(), self.b_slider.get()))
-        self.r_slider.set(1.0)
-        self.r_slider.pack(side="left", padx=5)
+        # apply stretching (non-uniform)
+        # clamp the slider values to reasonable range to avoid accidental 0 or negative
+        w_factor = max(0.05, min(self.width_slider.get(), 10.0))
+        h_factor = max(0.05, min(self.height_slider.get(), 10.0))
+        img = stretch_image(img, width_factor=w_factor, height_factor=h_factor)
 
-        self.g_slider = tk.Scale(frame, from_=0, to=2, resolution=0.1, orient="horizontal", label="Green",
-                                 command=lambda _: self.update_image(adjust_rgb, self.r_slider.get(), self.g_slider.get(), self.b_slider.get()))
-        self.g_slider.set(1.0)
-        self.g_slider.pack(side="left", padx=5)
+        self.current_img = img
+        self.draw_image(img)
 
-        self.b_slider = tk.Scale(frame, from_=0, to=2, resolution=0.1, orient="horizontal", label="Blue",
-                                 command=lambda _: self.update_image(adjust_rgb, self.r_slider.get(), self.g_slider.get(), self.b_slider.get()))
-        self.b_slider.set(1.0)
-        self.b_slider.pack(side="left", padx=5)
+    # --- Buttons ---
+    def add_button(self, parent, text, command, bg="#4CAF50"):
+        btn = tk.Button(parent, text=text, command=command,
+                        font=("Arial", 12, "bold"),
+                        bg=bg, fg="white",
+                        relief="flat", padx=12, pady=8)
+        btn.pack(side="left", padx=6)
 
-    def create_brightness_panel(self):
-        frame = tk.LabelFrame(self.root, text="Brightness & Sharpness", padx=10, pady=10)
-        frame.pack(fill="x", padx=20, pady=5)
+    # --- Create all sliders ---
+    def create_sliders(self):
+        # RGB sliders
+        self.r_slider = tk.Scale(self.panel_frame, from_=0, to=2, resolution=0.05, orient="horizontal",
+                                 label="Red", command=self.update_image)
+        self.g_slider = tk.Scale(self.panel_frame, from_=0, to=2, resolution=0.05, orient="horizontal",
+                                 label="Green", command=self.update_image)
+        self.b_slider = tk.Scale(self.panel_frame, from_=0, to=2, resolution=0.05, orient="horizontal",
+                                 label="Blue", command=self.update_image)
+        for s in (self.r_slider, self.g_slider, self.b_slider):
+            s.set(1.0)
 
-        self.bright_slider = tk.Scale(frame, from_=0, to=2, resolution=0.1, orient="horizontal", label="Brightness",
-                                      command=lambda _: self.update_image(adjust_brightness_sharpness, self.bright_slider.get(), self.sharp_slider.get()))
+        # Brightness & Sharpness
+        self.bright_slider = tk.Scale(self.panel_frame, from_=0, to=2, resolution=0.05, orient="horizontal",
+                                      label="Brightness", command=self.update_image)
+        self.sharp_slider = tk.Scale(self.panel_frame, from_=0, to=3, resolution=0.05, orient="horizontal",
+                                     label="Sharpness", command=self.update_image)
         self.bright_slider.set(1.0)
-        self.bright_slider.pack(side="left", padx=5)
-
-        self.sharp_slider = tk.Scale(frame, from_=0, to=3, resolution=0.1, orient="horizontal", label="Sharpness",
-                                     command=lambda _: self.update_image(adjust_brightness_sharpness, self.bright_slider.get(), self.sharp_slider.get()))
         self.sharp_slider.set(1.0)
-        self.sharp_slider.pack(side="left", padx=5)
 
-    def create_saturation_panel(self):
-        frame = tk.LabelFrame(self.root, text="Saturation", padx=10, pady=10)
-        frame.pack(fill="x", padx=20, pady=5)
-
-        self.sat_slider = tk.Scale(frame, from_=0, to=3, resolution=0.1, orient="horizontal", label="Saturation",
-                                   command=lambda _: self.update_image(adjust_saturation, self.sat_slider.get()))
+        # Saturation
+        self.sat_slider = tk.Scale(self.panel_frame, from_=0, to=3, resolution=0.05, orient="horizontal",
+                                   label="Saturation", command=self.update_image)
         self.sat_slider.set(1.0)
-        self.sat_slider.pack(side="left", padx=5)
+
+        # Blur
+        self.blur_slider = tk.Scale(self.panel_frame, from_=0, to=10, resolution=0.5, orient="horizontal",
+                                    label="Blur", command=self.update_image)
+        self.blur_slider.set(0)
+
+        # Stretch sliders (width and height multipliers)
+        # Use float range with fine resolution; 1 = original, <1 shrink, >1 expand
+        self.width_slider = tk.Scale(self.panel_frame, from_=0.2, to=3.0, resolution=0.02, orient="horizontal",
+                                     label="Width Stretch", command=self.update_image)
+        self.height_slider = tk.Scale(self.panel_frame, from_=0.2, to=3.0, resolution=0.02, orient="horizontal",
+                                      label="Height Stretch", command=self.update_image)
+        self.width_slider.set(1.0)
+        self.height_slider.set(1.0)
+
+        # Hide all sliders initially
+        for s in (self.r_slider, self.g_slider, self.b_slider,
+                  self.bright_slider, self.sharp_slider,
+                  self.sat_slider, self.blur_slider,
+                  self.width_slider, self.height_slider):
+            s.pack_forget()
+
+    # --- Show panels ---
+    def show_rgb_panel(self):
+        self.clear_panel()
+        for s in (self.r_slider, self.g_slider, self.b_slider):
+            s.pack(fill="x", padx=12, pady=2)
+        self.update_image()
+
+    def show_brightness_panel(self):
+        self.clear_panel()
+        for s in (self.bright_slider, self.sharp_slider):
+            s.pack(fill="x", padx=12, pady=2)
+        self.update_image()
+
+    def show_saturation_panel(self):
+        self.clear_panel()
+        self.sat_slider.pack(fill="x", padx=12, pady=2)
+        self.update_image()
+
+    def show_blur_panel(self):
+        self.clear_panel()
+        self.blur_slider.pack(fill="x", padx=12, pady=2)
+        self.update_image()
+
+    def show_stretch_panel(self):
+        self.clear_panel()
+        self.width_slider.pack(fill="x", padx=12, pady=2)
+        self.height_slider.pack(fill="x", padx=12, pady=2)
+        self.update_image()
+
+    def clear_panel(self):
+        for widget in self.panel_frame.winfo_children():
+            widget.pack_forget()
+
+    # --- Extra Features ---
+    def reset_image(self):
+        self.original_img = self.original_img  # keep same original
+        self.current_img = self.original_img.copy()
+        self.draw_image(self.current_img)
+        # Reset sliders
+        for s in (self.r_slider, self.g_slider, self.b_slider,
+                  self.bright_slider, self.sharp_slider,
+                  self.sat_slider, self.blur_slider):
+            if s is self.blur_slider:
+                s.set(0)
+            else:
+                s.set(1.0)
+        self.width_slider.set(1.0)
+        self.height_slider.set(1.0)
+
+    def save_as(self):
+        save_path = filedialog.asksaveasfilename(
+            defaultextension=".jpg",
+            filetypes=[("JPEG files", "*.jpg"), ("PNG files", "*.png"), ("All files", "*.*")]
+        )
+        if save_path:
+            self.current_img.save(save_path)
+
+    def open_image(self):
+        file_path = filedialog.askopenfilename(
+            filetypes=[("Image Files", "*.png *.jpg *.jpeg *.bmp *.gif"), ("All files", "*.*")]
+        )
+        if file_path:
+            self.original_img = Image.open(file_path).convert("RGB")
+            self.current_img = self.original_img.copy()
+            # reset sliders to sensible defaults (keeps user from accidentally applying previous stretch)
+            self.width_slider.set(1.0)
+            self.height_slider.set(1.0)
+            self.reset_image()
