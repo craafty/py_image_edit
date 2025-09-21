@@ -1,4 +1,0 @@
-blurry
-edge detection?
-image rotation
-image cropping

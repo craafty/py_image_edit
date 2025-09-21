@@ -7,6 +7,14 @@ import customtkinter as ctk
 # Set CustomTkinter appearance
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")  # options: "blue", "green", "dark-blue"
+from image_functions import (
+    adjust_rgb,
+    adjust_saturation,
+    adjust_brightness,
+    adjust_sharpness,
+    adjust_blur,
+    stretch_image,
+)
 
 class App:
     def __init__(self, root):
@@ -156,55 +164,73 @@ class App:
     # --- Panel Creators with CustomTkinter sliders ---
     def show_rgb_panel(self):
         self.clear_panel()
-        tk.Label(self.panel_frame, text="RGB Adjustments", bg="#3a3a3a", fg="white").pack(pady=5)
-        sliders = {}
-        for color in ["Red", "Green", "Blue"]:
-            frame = tk.Frame(self.panel_frame, bg="#3a3a3a")
-            frame.pack(fill="x", padx=20, pady=5)
-            tk.Label(frame, text=color, bg="#3a3a3a", fg="white").pack(side="left")
-            sliders[color] = ctk.CTkSlider(frame, from_=0, to=2, number_of_steps=20, orientation="horizontal", command=lambda val, c=color: self.update_image(adjust_rgb,
-                                                                                                                                                                   sliders["Red"].get(),
-                                                                                                                                                                   sliders["Green"].get(),
-                                                                                                                                                                   sliders["Blue"].get()))
-            sliders[color].set(1.0)
-            sliders[color].pack(side="right", fill="x", expand=True, padx=10)
+        tk.Label(self.panel_frame, text="RGB Adjustments", bg="#3a3a3a", fg="white").pack()
+
+        r_slider = tk.Scale(
+            self.panel_frame, from_=0, to=2, resolution=0.1, orient="horizontal",
+            label="Red", command=lambda _: self.update_image(adjust_rgb, r_slider.get(), g_slider.get(), b_slider.get())
+        )
+        r_slider.set(1.0)
+        r_slider.pack(fill="x", padx=20)
+
+        g_slider = tk.Scale(
+            self.panel_frame, from_=0, to=2, resolution=0.1, orient="horizontal",
+            label="Green", command=lambda _: self.update_image(adjust_rgb, r_slider.get(), g_slider.get(), b_slider.get())
+        )
+        g_slider.set(1.0)
+        g_slider.pack(fill="x", padx=20)
+
+        b_slider = tk.Scale(
+            self.panel_frame, from_=0, to=2, resolution=0.1, orient="horizontal",
+            label="Blue", command=lambda _: self.update_image(adjust_rgb, r_slider.get(), g_slider.get(), b_slider.get())
+        )
+        b_slider.set(1.0)
+        b_slider.pack(fill="x", padx=20)
 
     def show_brightness_panel(self):
         self.clear_panel()
-        tk.Label(self.panel_frame, text="Brightness & Sharpness", bg="#3a3a3a", fg="white").pack(pady=5)
-        # Brightness
-        bright_frame = tk.Frame(self.panel_frame, bg="#3a3a3a")
-        bright_frame.pack(fill="x", padx=20, pady=5)
-        tk.Label(bright_frame, text="Brightness", bg="#3a3a3a", fg="white").pack(side="left")
-        bright_slider = ctk.CTkSlider(bright_frame, from_=0, to=2, number_of_steps=20, command=lambda val: self.update_image(adjust_brightness_sharpness, bright_slider.get(), sharp_slider.get()))
+        tk.Label(self.panel_frame, text="Brightness & Sharpness", bg="#3a3a3a", fg="white").pack()
+
+        bright_slider = tk.Scale(
+            self.panel_frame, from_=0, to=2, resolution=0.1, orient="horizontal",
+            label="Brightness", command=lambda _: self.update_image(adjust_brightness_sharpness, bright_slider.get(), sharp_slider.get())
+        )
         bright_slider.set(1.0)
-        bright_slider.pack(side="right", fill="x", expand=True, padx=10)
-        # Sharpness
-        sharp_frame = tk.Frame(self.panel_frame, bg="#3a3a3a")
-        sharp_frame.pack(fill="x", padx=20, pady=5)
-        tk.Label(sharp_frame, text="Sharpness", bg="#3a3a3a", fg="white").pack(side="left")
-        sharp_slider = ctk.CTkSlider(sharp_frame, from_=0, to=3, number_of_steps=30, command=lambda val: self.update_image(adjust_brightness_sharpness, bright_slider.get(), sharp_slider.get()))
+        bright_slider.pack(fill="x", padx=20)
+
+        sharp_slider = tk.Scale(
+            self.panel_frame, from_=0, to=3, resolution=0.1, orient="horizontal",
+            label="Sharpness", command=lambda _: self.update_image(adjust_brightness_sharpness, bright_slider.get(), sharp_slider.get())
+        )
         sharp_slider.set(1.0)
-        sharp_slider.pack(side="right", fill="x", expand=True, padx=10)
+        sharp_slider.pack(fill="x", padx=20)
 
     def show_saturation_panel(self):
         self.clear_panel()
-        tk.Label(self.panel_frame, text="Saturation", bg="#3a3a3a", fg="white").pack(pady=5)
-        sat_slider = ctk.CTkSlider(self.panel_frame, from_=0, to=3, number_of_steps=30, command=lambda val: self.update_image(adjust_saturation, sat_slider.get()))
+        tk.Label(self.panel_frame, text="Saturation", bg="#3a3a3a", fg="white").pack()
+
+        sat_slider = tk.Scale(
+            self.panel_frame, from_=0, to=3, resolution=0.1, orient="horizontal",
+            label="Saturation", command=lambda _: self.update_image(adjust_saturation, sat_slider.get())
+        )
         sat_slider.set(1.0)
-        sat_slider.pack(fill="x", padx=20, pady=5)
+        sat_slider.pack(fill="x", padx=20)
 
     def show_blur_panel(self):
         self.clear_panel()
-        tk.Label(self.panel_frame, text="Blur", bg="#3a3a3a", fg="white").pack(pady=5)
-        blur_slider = ctk.CTkSlider(self.panel_frame, from_=0, to=10, number_of_steps=20, command=lambda val: self.update_image(adjust_blur, blur_slider.get()))
+        tk.Label(self.panel_frame, text="Blur", bg="#3a3a3a", fg="white").pack()
+
+        blur_slider = tk.Scale(
+            self.panel_frame, from_=0, to=10, resolution=0.5, orient="horizontal",
+            label="Blur", command=lambda _: self.update_image(adjust_blur, blur_slider.get())
+        )
         blur_slider.set(0.0)
-        blur_slider.pack(fill="x", padx=20, pady=5)
+        blur_slider.pack(fill="x", padx=20)
 
     # --- Extra Features ---
     def reset_image(self):
-        self.current_image_obj = Image.open(self.current_image_path)
-        self.draw_image(self.current_image_obj)
+        """Reload original image (clear edits)."""
+        self.draw_image(self.current_image)
 
     def save_as(self):
         save_path = filedialog.asksaveasfilename(
@@ -212,14 +238,11 @@ class App:
             filetypes=[("JPEG files", "*.jpg"), ("PNG files", "*.png"), ("All files", "*.*")]
         )
         if save_path:
-            self.current_image_obj.save(save_path)
-            messagebox.showinfo("Saved", f"Image saved as {save_path}")
+            Image.open(self.preview_image).save(save_path)
 
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = App(root)
     root.mainloop()
-
-
 
