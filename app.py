@@ -21,6 +21,7 @@ class App:
         self.root.title("Image Editor")
         self.root.geometry("600x700")
         self.root.configure(bg="#2c2c2c")
+        self.root.resizable(False, False)
 
         # --- Image variables ---
         self.current_image_path = "example.jpg"
@@ -35,7 +36,11 @@ class App:
             "Brightness": 1.0,
             "Sharpness": 1.0,
             "Saturation": 1.0,
-            "Blur": 0.0
+            "Blur": 0.0,
+            "Flip_H": False,
+            "Flip_V": False,
+            "Stretch_H": 1.0,
+            "Stretch_V": 1.0
         }
 
         # Crop mode variables
@@ -83,12 +88,15 @@ class App:
         self.panel_frame.pack(fill="x", padx=20, pady=10)
 
         # --- Buttons ---
+        #self.add_button("Close", self.root.destroy, "#f44336")
         self.add_button("Open Image", self.open_image, "#2196F3")
         self.add_button("RGB", self.show_rgb_panel, "#4CAF50")
         self.add_button("Brightness", self.show_brightness_panel, "#4CAF50")
         self.add_button("Saturation", self.show_saturation_panel, "#4CAF50")
         self.add_button("Blur", self.show_blur_panel, "#4CAF50")
-        self.add_button("Crop", self.enable_crop_mode, "#FFC107")
+        self.add_button("Crop", self.enable_crop_mode, "#4CAF50")
+        self.add_button("Stretch", self.show_stretch_panel, "#4CAF50")
+        self.add_button("Flip", self.show_flip_panel, "#4CAF50")
         self.add_button("Reset", self.reset_image, "#f44336")
         self.add_button("Save As", self.save_as, "#2196F3")
 
@@ -136,8 +144,21 @@ class App:
         img = adjust_saturation(img, self.values["Saturation"])
         # Blur
         img = adjust_blur(img, self.values["Blur"])
+        # Stretch
+        w, h = img.size
+        img = img.resize(
+            (int(w * self.values["Stretch_H"]), int(h * self.values["Stretch_V"])),
+            Image.LANCZOS
+        )
+        # Flips
+        if self.values["Flip_H"]:
+            img = img.transpose(Image.FLIP_LEFT_RIGHT)
+        if self.values["Flip_V"]:
+            img = img.transpose(Image.FLIP_TOP_BOTTOM)
+
         self.current_image_obj = img
         self.draw_image(img)
+
 
     # --- Crop Mode ---
     def enable_crop_mode(self):
@@ -162,10 +183,24 @@ class App:
         if not self.rect:
             return
         x1, y1, x2, y2 = self.canvas.coords(self.rect)
+
+        # Convert canvas coords to original image coords
         left = int((min(x1, x2) - self.offset_x) / self.scale)
         top = int((min(y1, y2) - self.offset_y) / self.scale)
         right = int((max(x1, x2) - self.offset_x) / self.scale)
         bottom = int((max(y1, y2) - self.offset_y) / self.scale)
+
+        # Account for horizontal flip
+        if self.values["Flip_H"]:
+            w, _ = self.original_image.size
+            left, right = w - right, w - left
+
+        # Account for vertical flip
+        if self.values["Flip_V"]:
+            _, h = self.original_image.size
+            top, bottom = h - bottom, h - top
+
+        # Crop the original image
         self.original_image = self.original_image.crop((left, top, right, bottom))
         self.apply_all_adjustments()
         self.crop_mode = False
@@ -207,6 +242,27 @@ class App:
             slider.pack(fill="x", padx=20, pady=5)
             sliders[label] = slider
 
+    def show_stretch_panel(self):
+        self.clear_panel()
+        tk.Label(self.panel_frame, text="Stretch Image", bg="#3a3a3a", fg="white", font=("Arial", 12, "bold")).pack(pady=5)
+        sliders = {}
+
+        def update_stretch(val=None):
+            self.values["Stretch_H"] = sliders["Horizontal"].get()
+            self.values["Stretch_V"] = sliders["Vertical"].get()
+            self.apply_all_adjustments()
+
+        for label, key in [("Horizontal", "Stretch_H"), ("Vertical", "Stretch_V")]:
+            tk.Label(self.panel_frame, text=label, bg="#3a3a3a", fg="white").pack(anchor="w", padx=10)
+            slider = ctk.CTkSlider(
+                self.panel_frame, from_=0.1, to=3, number_of_steps=29,
+                command=update_stretch
+            )
+            slider.set(self.values[key])
+            slider.pack(fill="x", padx=20, pady=5)
+            sliders[label] = slider
+
+
     def show_saturation_panel(self):
         self.clear_panel()
         tk.Label(self.panel_frame, text="Saturation", bg="#3a3a3a", fg="white", font=("Arial", 12, "bold")).pack(pady=5)
@@ -225,10 +281,48 @@ class App:
         self.values[key] = float(val)
         self.apply_all_adjustments()
 
+    def show_flip_panel(self):
+        self.clear_panel()
+        tk.Label(self.panel_frame, text="Flip Image", bg="#3a3a3a", fg="white", font=("Arial", 12, "bold")).pack(pady=5)
+
+        # Horizontal Flip Switch
+        self.flip_h_var = tk.BooleanVar(value=self.values.get("Flip_H", False))
+        flip_h_switch = ctk.CTkSwitch(
+            self.panel_frame,
+            text="Flip Horizontal",
+            variable=self.flip_h_var,
+            command=self.apply_flip
+        )
+        flip_h_switch.pack(pady=10, padx=20, anchor="w")
+
+        # Vertical Flip Switch
+        self.flip_v_var = tk.BooleanVar(value=self.values.get("Flip_V", False))
+        flip_v_switch = ctk.CTkSwitch(
+            self.panel_frame,
+            text="Flip Vertical",
+            variable=self.flip_v_var,
+            command=self.apply_flip
+        )
+        flip_v_switch.pack(pady=10, padx=20, anchor="w")
+
+    def apply_flip(self):
+        self.values["Flip_H"] = self.flip_h_var.get()
+        self.values["Flip_V"] = self.flip_v_var.get()
+        self.apply_all_adjustments()
+
+
     # --- Extra features ---
     def reset_image(self):
         self.original_image = Image.open(self.current_image_path)
-        self.values = {k: 1.0 if k != "Blur" else 0.0 for k in self.values}
+        # Reset sliders
+        self.values = {k: 1.0 if k not in ["Blur", "Flip_H", "Flip_V"] else 0.0 for k in self.values}
+        # Reset flip toggles
+        self.values["Flip_H"] = False
+        self.values["Flip_V"] = False
+        if hasattr(self, "flip_h_var"): self.flip_h_var.set(False)
+        if hasattr(self, "flip_v_var"): self.flip_v_var.set(False)
+        self.values["Stretch_H"] = 1.0
+        self.values["Stretch_V"] = 1.0
         self.apply_all_adjustments()
 
     def save_as(self):
@@ -244,14 +338,16 @@ class App:
             filetypes=[("Image Files", "*.png *.jpg *.bmp *.gif"), ("All files", "*.*")]
         )
         if file_path:
+            self.current_image_path = file_path  # <-- update the path
             self.original_image = Image.open(file_path).convert("RGB")
             self.current_image_obj = self.original_image.copy()
 
             # Reset all slider values
             self.values = {k: 1.0 if k != "Blur" else 0.0 for k in self.values}
-            
+
             # Redraw image
             self.apply_all_adjustments()
+
 
 
 
