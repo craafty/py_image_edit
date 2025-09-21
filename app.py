@@ -225,7 +225,7 @@ class App:
         self.values[key] = float(val)
         self.apply_all_adjustments()
 
-    # --- Extra Features ---
+    # --- Extra features ---
     def reset_image(self):
         self.original_image = Image.open(self.current_image_path)
         self.values = {k: 1.0 if k != "Blur" else 0.0 for k in self.values}
