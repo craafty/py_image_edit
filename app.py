@@ -42,7 +42,7 @@ class App:
             "Brightness": 1.0,
             "Sharpness": 1.0,
             "Saturation": 1.0,
-            "Blur": 0.0,
+            "Blur": 1.0,
             "Flip_H": False,
             "Flip_V": False,
             "Stretch_H": 1.0,
@@ -315,7 +315,7 @@ class App:
     def show_blur_panel(self):
         self.clear_panel()
         tk.Label(self.panel_frame, text="Blur", bg="#3a3a3a", fg="white", font=("Arial", 12, "bold")).pack(pady=5)
-        slider = ctk.CTkSlider(self.panel_frame, from_=0, to=10, number_of_steps=20, command=lambda val: self.update_slider("Blur", val))
+        slider = ctk.CTkSlider(self.panel_frame, from_=1, to=11, number_of_steps=20, command=lambda val: self.update_slider("Blur", float(val)-1))
         slider.set(self.values["Blur"])
         slider.pack(fill="x", padx=20, pady=5)
 
@@ -362,8 +362,15 @@ class App:
 
     # --- Extra features ---
     def reset_image(self):
+        if not self.current_image_path:
+            return
         self.original_image = Image.open(self.current_image_path).convert("RGB")
-        # Reset numeric values
+        self.current_image_obj = self.original_image.copy()
+        for widget in self.panel_frame.winfo_children():
+            if isinstance(widget, ctk.CTkSlider):
+                widget.set(1.0)
+            elif isinstance(widget, ctk.CTkSwitch):
+                widget.deselect()  # default False
         self.reset_values()
         self.apply_all_adjustments()
 
@@ -375,7 +382,7 @@ class App:
             "Brightness": 1.0,
             "Sharpness": 1.0,
             "Saturation": 1.0,
-            "Blur": 0.0,
+            "Blur": 1.0,
             "Flip_H": False,
             "Flip_V": False,
             "Stretch_H": 1.0,
