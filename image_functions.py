@@ -35,13 +35,17 @@ def adjust_blur(img, blur=0.0):
         img = img.filter(ImageFilter.GaussianBlur(blur))
     return img
 
-def stretch_image(img, width_factor=1.0, height_factor=1.0):
-    if width_factor <= 0 or height_factor <= 0:
-        raise ValueError("Scaling factors must be positive numbers.")
-    
-    orig_width, orig_height = img.size
-    new_width = int(orig_width * width_factor)
-    new_height = int(orig_height * height_factor)
-    
-    stretched_img = img.resize((new_width, new_height), Image.LANCZOS)
-    return stretched_img
+def adjust_stretch(img, stretch_hor, stretch_vert):
+    w, h = img.size
+    img = img.resize(
+        (int(w * stretch_hor), int(h * stretch_vert)),
+        Image.LANCZOS
+    )
+    return img
+
+def adjust_flip(img, flip_hor, flip_vert):
+    if flip_hor:
+            img = img.transpose(Image.FLIP_LEFT_RIGHT)
+    if flip_vert:
+            img = img.transpose(Image.FLIP_TOP_BOTTOM)
+    return img

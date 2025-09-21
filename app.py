@@ -7,6 +7,8 @@ from image_functions import (
     adjust_brightness,
     adjust_sharpness,
     adjust_blur,
+    adjust_stretch,
+    adjust_flip
 )
 import customtkinter as ctk
 
@@ -24,9 +26,13 @@ class App:
         self.root.resizable(False, False)
 
         # --- Image variables ---
-        self.current_image_path = "example.jpg"
-        self.original_image = Image.open(self.current_image_path)
-        self.current_image_obj = self.original_image.copy()
+        #self.current_image_path = "example.jpg"
+        #self.original_image = Image.open(self.current_image_path)
+        #self.current_image_obj = self.original_image.copy()
+
+        self.current_image_path = None
+        self.original_image = None
+        self.current_image_obj = None
 
         # Store cumulative slider values
         self.values = {
@@ -76,7 +82,14 @@ class App:
         )
         self.canvas.pack(pady=20, padx=20)
         self.tk_image = None
-        self.draw_image(self.current_image_obj)
+        #self.draw_image(self.current_image_obj)
+        self.canvas.create_text(
+            self.canvas_w // 2,
+            self.canvas_h // 2,
+            text="No Image Loaded",
+            fill="white",
+            font=("Arial", 14, "bold")
+        )
 
         # Bind crop events
         self.canvas.bind("<ButtonPress-1>", self.on_button_press)
@@ -92,6 +105,7 @@ class App:
         self.add_button("Open Image", self.open_image, "#2196F3")
         self.add_button("RGB", self.show_rgb_panel, "#4CAF50")
         self.add_button("Brightness", self.show_brightness_panel, "#4CAF50")
+        self.add_button("Sharpness", self.show_sharpness_panel, "#4CAF50")
         self.add_button("Saturation", self.show_saturation_panel, "#4CAF50")
         self.add_button("Blur", self.show_blur_panel, "#4CAF50")
         self.add_button("Crop", self.enable_crop_mode, "#4CAF50")
@@ -99,6 +113,13 @@ class App:
         self.add_button("Flip", self.show_flip_panel, "#4CAF50")
         self.add_button("Reset", self.reset_image, "#f44336")
         self.add_button("Save As", self.save_as, "#2196F3")
+
+    def require_image(func):
+        def wrapper(self, *args, **kwargs):
+            if self.original_image is None:
+                return  # no image loaded → ignore button press
+            return func(self, *args, **kwargs)
+        return wrapper
 
     # --- Button Helper ---
     def add_button(self, text, command, bg):
@@ -145,16 +166,9 @@ class App:
         # Blur
         img = adjust_blur(img, self.values["Blur"])
         # Stretch
-        w, h = img.size
-        img = img.resize(
-            (int(w * self.values["Stretch_H"]), int(h * self.values["Stretch_V"])),
-            Image.LANCZOS
-        )
+        img = adjust_stretch(img, self.values["Stretch_H"], self.values["Stretch_V"])
         # Flips
-        if self.values["Flip_H"]:
-            img = img.transpose(Image.FLIP_LEFT_RIGHT)
-        if self.values["Flip_V"]:
-            img = img.transpose(Image.FLIP_TOP_BOTTOM)
+        img = adjust_flip(img, self.values["Flip_H"], self.values["Flip_V"])
 
         self.current_image_obj = img
         self.draw_image(img)
@@ -207,6 +221,7 @@ class App:
         self.rect = None
 
     # --- Panel Creators ---
+    @require_image
     def show_rgb_panel(self):
         self.clear_panel()
         tk.Label(self.panel_frame, text="RGB Adjustments", bg="#3a3a3a", fg="white", font=("Arial", 12, "bold")).pack(pady=5)
@@ -225,23 +240,49 @@ class App:
             slider.pack(fill="x", padx=20, pady=5)
             sliders[color] = slider
 
+    @require_image
     def show_brightness_panel(self):
         self.clear_panel()
-        tk.Label(self.panel_frame, text="Brightness & Sharpness", bg="#3a3a3a", fg="white", font=("Arial", 12, "bold")).pack(pady=5)
-        sliders = {}
+        tk.Label(
+            self.panel_frame,
+            text="Brightness",
+            bg="#3a3a3a",
+            fg="white",
+            font=("Arial", 12, "bold")
+        ).pack(pady=5)
 
-        def update(val=None):
-            self.values["Brightness"] = sliders["Brightness"].get()
-            self.values["Sharpness"] = sliders["Sharpness"].get()
-            self.apply_all_adjustments()
+        slider = ctk.CTkSlider(
+            self.panel_frame,
+            from_=0,
+            to=2,
+            number_of_steps=20,
+            command=lambda val: self.update_slider("Brightness", val)
+        )
+        slider.set(self.values["Brightness"])
+        slider.pack(fill="x", padx=20, pady=5)
 
-        for label, max_val in [("Brightness", 2), ("Sharpness", 3)]:
-            tk.Label(self.panel_frame, text=label, bg="#3a3a3a", fg="white").pack(anchor="w", padx=10)
-            slider = ctk.CTkSlider(self.panel_frame, from_=0, to=max_val, number_of_steps=20, command=update)
-            slider.set(self.values[label])
-            slider.pack(fill="x", padx=20, pady=5)
-            sliders[label] = slider
+    @require_image
+    def show_sharpness_panel(self):
+        self.clear_panel()
+        tk.Label(
+            self.panel_frame,
+            text="Sharpness",
+            bg="#3a3a3a",
+            fg="white",
+            font=("Arial", 12, "bold")
+        ).pack(pady=5)
 
+        slider = ctk.CTkSlider(
+            self.panel_frame,
+            from_=0,
+            to=3,
+            number_of_steps=20,
+            command=lambda val: self.update_slider("Sharpness", val)
+        )
+        slider.set(self.values["Sharpness"])
+        slider.pack(fill="x", padx=20, pady=5)
+
+    @require_image
     def show_stretch_panel(self):
         self.clear_panel()
         tk.Label(self.panel_frame, text="Stretch Image", bg="#3a3a3a", fg="white", font=("Arial", 12, "bold")).pack(pady=5)
@@ -262,7 +303,7 @@ class App:
             slider.pack(fill="x", padx=20, pady=5)
             sliders[label] = slider
 
-
+    @require_image
     def show_saturation_panel(self):
         self.clear_panel()
         tk.Label(self.panel_frame, text="Saturation", bg="#3a3a3a", fg="white", font=("Arial", 12, "bold")).pack(pady=5)
@@ -270,6 +311,7 @@ class App:
         slider.set(self.values["Saturation"])
         slider.pack(fill="x", padx=20, pady=5)
 
+    @require_image
     def show_blur_panel(self):
         self.clear_panel()
         tk.Label(self.panel_frame, text="Blur", bg="#3a3a3a", fg="white", font=("Arial", 12, "bold")).pack(pady=5)
@@ -277,33 +319,40 @@ class App:
         slider.set(self.values["Blur"])
         slider.pack(fill="x", padx=20, pady=5)
 
+    @require_image
     def update_slider(self, key, val):
         self.values[key] = float(val)
         self.apply_all_adjustments()
 
+    @require_image
     def show_flip_panel(self):
         self.clear_panel()
         tk.Label(self.panel_frame, text="Flip Image", bg="#3a3a3a", fg="white", font=("Arial", 12, "bold")).pack(pady=5)
 
-        # Horizontal Flip Switch
-        self.flip_h_var = tk.BooleanVar(value=self.values.get("Flip_H", False))
+        def toggle_h():
+            self.values["Flip_H"] = not self.values["Flip_H"]
+            self.apply_all_adjustments()
+
+        def toggle_v():
+            self.values["Flip_V"] = not self.values["Flip_V"]
+            self.apply_all_adjustments()
+
         flip_h_switch = ctk.CTkSwitch(
             self.panel_frame,
             text="Flip Horizontal",
-            variable=self.flip_h_var,
-            command=self.apply_flip
+            command=toggle_h
         )
+        flip_h_switch.select() if self.values["Flip_H"] else flip_h_switch.deselect()
         flip_h_switch.pack(pady=10, padx=20, anchor="w")
 
-        # Vertical Flip Switch
-        self.flip_v_var = tk.BooleanVar(value=self.values.get("Flip_V", False))
         flip_v_switch = ctk.CTkSwitch(
             self.panel_frame,
             text="Flip Vertical",
-            variable=self.flip_v_var,
-            command=self.apply_flip
+            command=toggle_v
         )
+        flip_v_switch.select() if self.values["Flip_V"] else flip_v_switch.deselect()
         flip_v_switch.pack(pady=10, padx=20, anchor="w")
+
 
     def apply_flip(self):
         self.values["Flip_H"] = self.flip_h_var.get()
@@ -313,17 +362,25 @@ class App:
 
     # --- Extra features ---
     def reset_image(self):
-        self.original_image = Image.open(self.current_image_path)
-        # Reset sliders
-        self.values = {k: 1.0 if k not in ["Blur", "Flip_H", "Flip_V"] else 0.0 for k in self.values}
-        # Reset flip toggles
-        self.values["Flip_H"] = False
-        self.values["Flip_V"] = False
-        if hasattr(self, "flip_h_var"): self.flip_h_var.set(False)
-        if hasattr(self, "flip_v_var"): self.flip_v_var.set(False)
-        self.values["Stretch_H"] = 1.0
-        self.values["Stretch_V"] = 1.0
+        self.original_image = Image.open(self.current_image_path).convert("RGB")
+        # Reset numeric values
+        self.reset_values()
         self.apply_all_adjustments()
+
+    def reset_values(self):
+        self.values.update({
+            "Red": 1.0,
+            "Green": 1.0,
+            "Blue": 1.0,
+            "Brightness": 1.0,
+            "Sharpness": 1.0,
+            "Saturation": 1.0,
+            "Blur": 0.0,
+            "Flip_H": False,
+            "Flip_V": False,
+            "Stretch_H": 1.0,
+            "Stretch_V": 1.0
+        })
 
     def save_as(self):
         save_path = filedialog.asksaveasfilename(
@@ -343,11 +400,8 @@ class App:
             self.current_image_obj = self.original_image.copy()
 
             # Reset all slider values
-            self.values = {k: 1.0 if k != "Blur" else 0.0 for k in self.values}
+            self.reset_values()
 
             # Redraw image
             self.apply_all_adjustments()
-
-
-
 
