@@ -1,20 +1,19 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 from PIL import Image, ImageTk
-from imageFunctions import (adjust_rgb, adjust_brightness_sharpness, adjust_saturation, adjust_blur)
-import customtkinter as ctk
-
-# Set CustomTkinter appearance
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("dark-blue")  # options: "blue", "green", "dark-blue"
 from image_functions import (
     adjust_rgb,
     adjust_saturation,
     adjust_brightness,
     adjust_sharpness,
     adjust_blur,
-    stretch_image,
 )
+import customtkinter as ctk
+
+# Set CustomTkinter appearance
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("dark-blue")  # options: "blue", "green", "dark-blue"
+
 
 class App:
     def __init__(self, root):
@@ -22,50 +21,38 @@ class App:
         self.root.title("Image Editor")
         self.root.geometry("700x700")
         self.root.configure(bg="#2c2c2c")
-        self.root.protocol("WM_DELETE_WINDOW", self.root.destroy)
 
         # --- Image variables ---
         self.current_image_path = "example.jpg"
         self.current_image_obj = Image.open(self.current_image_path)
-        self.preview_image = "preview.jpg"
+        self.displayed_img = None
+        self.tk_image = None
 
-        # Crop mode variables
-        self.crop_mode = False
-        self.start_x = None
-        self.start_y = None
-        self.rect = None
-        self.offset_x = 0
-        self.offset_y = 0
-        self.scale = 1.0
-
-        # --- Main Layout ---
+        # --- Layout ---
         self.main_frame = tk.Frame(self.root, bg="#2c2c2c")
         self.main_frame.pack(fill="both", expand=True)
 
         # Left: Buttons Sidebar
         self.btn_frame = tk.Frame(self.main_frame, bg="#2c2c2c")
         self.btn_frame.pack(side="left", fill="y", padx=10, pady=10)
-        self.btn_frame.grid_rowconfigure(0, weight=1)
-        self.btn_frame.grid_rowconfigure(99, weight=1)
 
         # Right: Image + Sliders
         self.right_frame = tk.Frame(self.main_frame, bg="#2c2c2c")
         self.right_frame.pack(side="right", expand=True, fill="both")
 
-        # --- Image Canvas ---
+        # --- Canvas ---
         self.canvas_w, self.canvas_h = 650, 450
-        self.canvas = tk.Canvas(self.right_frame, width=self.canvas_w, height=self.canvas_h, bg="#2c2c2c", highlightthickness=0)
+        self.canvas = tk.Canvas(
+            self.right_frame,
+            width=self.canvas_w,
+            height=self.canvas_h,
+            bg="#2c2c2c",
+            highlightthickness=0,
+        )
         self.canvas.pack(pady=20)
-        self.displayed_img = None
-        self.tk_image = None
         self.draw_image(self.current_image_obj)
 
-        # Bind crop events
-        self.canvas.bind("<ButtonPress-1>", self.on_button_press)
-        self.canvas.bind("<B1-Motion>", self.on_drag)
-        self.canvas.bind("<ButtonRelease-1>", self.on_button_release)
-
-        # --- Dynamic Panel Area ---
+        # --- Panel Frame ---
         self.panel_frame = tk.Frame(self.right_frame, bg="#3a3a3a")
         self.panel_frame.pack(fill="x", padx=20, pady=10)
 
@@ -74,7 +61,6 @@ class App:
         self.add_button("Brightness", self.show_brightness_panel, "#4CAF50")
         self.add_button("Saturation", self.show_saturation_panel, "#4CAF50")
         self.add_button("Blur", self.show_blur_panel, "#4CAF50")
-        self.add_button("Crop", self.enable_crop_mode, "#FFC107")
         self.add_button("Reset", self.reset_image, "#f44336")
         self.add_button("Save As", self.save_as, "#2196F3")
 
@@ -82,16 +68,17 @@ class App:
     def add_button(self, text, command, bg):
         row = len([w for w in self.btn_frame.grid_slaves() if isinstance(w, tk.Button)])
         btn = tk.Button(
-            self.btn_frame, text=text, command=command,
+            self.btn_frame,
+            text=text,
+            command=command,
             font=("Arial", 11, "bold"),
-            bg=bg, fg="white", relief="flat",
-            width=14, height=2
+            bg=bg,
+            fg="white",
+            relief="flat",
+            width=14,
+            height=2,
         )
-        btn.grid(row=row+1, column=0, pady=6, sticky="n")
-        def on_enter(e): btn.config(bg="#333333")
-        def on_leave(e): btn.config(bg=bg)
-        btn.bind("<Enter>", on_enter)
-        btn.bind("<Leave>", on_leave)
+        btn.grid(row=row + 1, column=0, pady=6, sticky="n")
 
     def clear_panel(self):
         for widget in self.panel_frame.winfo_children():
@@ -112,137 +99,101 @@ class App:
         self.displayed_img = img.copy()
         self.tk_image = ImageTk.PhotoImage(img)
         self.canvas.delete("all")
-        self.offset_x = (self.canvas_w - new_w)//2
-        self.offset_y = (self.canvas_h - new_h)//2
-        self.scale = scale
-        self.canvas.create_image(self.canvas_w//2, self.canvas_h//2, image=self.tk_image)
+        self.canvas.create_image(self.canvas_w // 2, self.canvas_h // 2, image=self.tk_image)
 
     # --- Update Image ---
     def update_image(self, func, *args):
-        func(self.current_image_obj, *args, save_path=self.preview_image)
-        self.current_image_obj = Image.open(self.preview_image)
-        self.draw_image(self.current_image_obj)
+        new_img = func(self.current_image_obj.copy(), *args)
+        self.current_image_obj = new_img
+        self.draw_image(new_img)
 
-    # --- Crop Mode ---
-    def enable_crop_mode(self):
-        self.crop_mode = True
-        if self.rect:
-            self.canvas.delete(self.rect)
-            self.rect = None
-
-    def on_button_press(self, event):
-        if not self.crop_mode or self.displayed_img is None:
-            return
-        self.start_x = event.x
-        self.start_y = event.y
-        if self.rect:
-            self.canvas.delete(self.rect)
-        self.rect = self.canvas.create_rectangle(self.start_x, self.start_y, self.start_x, self.start_y, outline="red", width=2)
-
-    def on_drag(self, event):
-        if not self.crop_mode or self.rect is None:
-            return
-        self.canvas.coords(self.rect, self.start_x, self.start_y, event.x, event.y)
-
-    def on_button_release(self, event):
-        if not self.crop_mode or self.rect is None:
-            return
-
-        x1, y1, x2, y2 = self.canvas.coords(self.rect)
-        left = int((min(x1, x2) - self.offset_x) / self.scale)
-        top = int((min(y1, y2) - self.offset_y) / self.scale)
-        right = int((max(x1, x2) - self.offset_x) / self.scale)
-        bottom = int((max(y1, y2) - self.offset_y) / self.scale)
-
-        cropped_img = self.current_image_obj.crop((left, top, right, bottom))
-        self.current_image_obj = cropped_img
-        self.draw_image(self.current_image_obj)
-
-        self.crop_mode = False
-        self.rect = None
-
-    # --- Panel Creators with CustomTkinter sliders ---
+    # --- RGB Panel ---
     def show_rgb_panel(self):
         self.clear_panel()
-        tk.Label(self.panel_frame, text="RGB Adjustments", bg="#3a3a3a", fg="white").pack()
+        tk.Label(
+            self.panel_frame, text="RGB Adjustments", bg="#3a3a3a", fg="white", font=("Arial", 12, "bold")
+        ).pack(pady=5)
 
-        r_slider = tk.Scale(
-            self.panel_frame, from_=0, to=2, resolution=0.1, orient="horizontal",
-            label="Red", command=lambda _: self.update_image(adjust_rgb, r_slider.get(), g_slider.get(), b_slider.get())
-        )
-        r_slider.set(1.0)
-        r_slider.pack(fill="x", padx=20)
+        self.rgb_base_image = self.current_image_obj.copy()
+        sliders = {}
 
-        g_slider = tk.Scale(
-            self.panel_frame, from_=0, to=2, resolution=0.1, orient="horizontal",
-            label="Green", command=lambda _: self.update_image(adjust_rgb, r_slider.get(), g_slider.get(), b_slider.get())
-        )
-        g_slider.set(1.0)
-        g_slider.pack(fill="x", padx=20)
+        def slider_update(_=None):
+            r = sliders["Red"].get()
+            g = sliders["Green"].get()
+            b = sliders["Blue"].get()
+            new_img = adjust_rgb(self.rgb_base_image.copy(), r, g, b)
+            self.draw_image(new_img)
 
-        b_slider = tk.Scale(
-            self.panel_frame, from_=0, to=2, resolution=0.1, orient="horizontal",
-            label="Blue", command=lambda _: self.update_image(adjust_rgb, r_slider.get(), g_slider.get(), b_slider.get())
-        )
-        b_slider.set(1.0)
-        b_slider.pack(fill="x", padx=20)
+        for color in ("Red", "Green", "Blue"):
+            tk.Label(self.panel_frame, text=color, bg="#3a3a3a", fg="white").pack()
+            slider = ctk.CTkSlider(
+                self.panel_frame, from_=0, to=2, number_of_steps=20, command=lambda val, c=color: slider_update()
+            )
+            slider.set(1.0)
+            slider.pack(fill="x", padx=20, pady=5)
+            sliders[color] = slider
 
+    # --- Brightness Panel ---
     def show_brightness_panel(self):
         self.clear_panel()
-        tk.Label(self.panel_frame, text="Brightness & Sharpness", bg="#3a3a3a", fg="white").pack()
+        tk.Label(self.panel_frame, text="Brightness & Sharpness", bg="#3a3a3a", fg="white").pack(pady=5)
 
-        bright_slider = tk.Scale(
-            self.panel_frame, from_=0, to=2, resolution=0.1, orient="horizontal",
-            label="Brightness", command=lambda _: self.update_image(adjust_brightness_sharpness, bright_slider.get(), sharp_slider.get())
-        )
+        def update_bright_sharp(_=None):
+            b_val = bright_slider.get()
+            s_val = sharp_slider.get()
+            new_img = adjust_brightness(self.current_image_obj.copy(), b_val)
+            new_img = adjust_sharpness(new_img, s_val)
+            self.draw_image(new_img)
+
+        bright_slider = ctk.CTkSlider(self.panel_frame, from_=0, to=2, number_of_steps=20, command=update_bright_sharp)
         bright_slider.set(1.0)
-        bright_slider.pack(fill="x", padx=20)
+        tk.Label(self.panel_frame, text="Brightness", bg="#3a3a3a", fg="white").pack()
+        bright_slider.pack(fill="x", padx=20, pady=5)
 
-        sharp_slider = tk.Scale(
-            self.panel_frame, from_=0, to=3, resolution=0.1, orient="horizontal",
-            label="Sharpness", command=lambda _: self.update_image(adjust_brightness_sharpness, bright_slider.get(), sharp_slider.get())
-        )
+        sharp_slider = ctk.CTkSlider(self.panel_frame, from_=0, to=3, number_of_steps=30, command=update_bright_sharp)
         sharp_slider.set(1.0)
-        sharp_slider.pack(fill="x", padx=20)
+        tk.Label(self.panel_frame, text="Sharpness", bg="#3a3a3a", fg="white").pack()
+        sharp_slider.pack(fill="x", padx=20, pady=5)
 
+    # --- Saturation Panel ---
     def show_saturation_panel(self):
         self.clear_panel()
-        tk.Label(self.panel_frame, text="Saturation", bg="#3a3a3a", fg="white").pack()
+        tk.Label(self.panel_frame, text="Saturation", bg="#3a3a3a", fg="white").pack(pady=5)
 
-        sat_slider = tk.Scale(
-            self.panel_frame, from_=0, to=3, resolution=0.1, orient="horizontal",
-            label="Saturation", command=lambda _: self.update_image(adjust_saturation, sat_slider.get())
-        )
+        def update_saturation(val):
+            new_img = adjust_saturation(self.current_image_obj.copy(), float(val))
+            self.draw_image(new_img)
+
+        sat_slider = ctk.CTkSlider(self.panel_frame, from_=0, to=3, number_of_steps=30, command=update_saturation)
         sat_slider.set(1.0)
-        sat_slider.pack(fill="x", padx=20)
+        sat_slider.pack(fill="x", padx=20, pady=5)
 
+    # --- Blur Panel ---
     def show_blur_panel(self):
         self.clear_panel()
-        tk.Label(self.panel_frame, text="Blur", bg="#3a3a3a", fg="white").pack()
+        tk.Label(self.panel_frame, text="Blur", bg="#3a3a3a", fg="white").pack(pady=5)
 
-        blur_slider = tk.Scale(
-            self.panel_frame, from_=0, to=10, resolution=0.5, orient="horizontal",
-            label="Blur", command=lambda _: self.update_image(adjust_blur, blur_slider.get())
-        )
-        blur_slider.set(0.0)
-        blur_slider.pack(fill="x", padx=20)
+        def update_blur(val):
+            new_img = adjust_blur(self.current_image_obj.copy(), float(val))
+            self.draw_image(new_img)
+
+        blur_slider = ctk.CTkSlider(self.panel_frame, from_=0, to=10, number_of_steps=20, command=update_blur)
+        blur_slider.set(0)
+        blur_slider.pack(fill="x", padx=20, pady=5)
 
     # --- Extra Features ---
     def reset_image(self):
-        """Reload original image (clear edits)."""
-        self.draw_image(self.current_image)
+        self.current_image_obj = Image.open(self.current_image_path)
+        self.draw_image(self.current_image_obj)
 
     def save_as(self):
         save_path = filedialog.asksaveasfilename(
             defaultextension=".jpg",
-            filetypes=[("JPEG files", "*.jpg"), ("PNG files", "*.png"), ("All files", "*.*")]
+            filetypes=[("JPEG files", "*.jpg"), ("PNG files", "*.png"), ("All files", "*.*")],
         )
         if save_path:
-            Image.open(self.preview_image).save(save_path)
+            self.current_image_obj.save(save_path)
 
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = App(root)
-    root.mainloop()
+
 
