@@ -19,13 +19,24 @@ class App:
     def __init__(self, root):
         self.root = root
         self.root.title("Image Editor")
-        self.root.geometry("700x700")
+        self.root.geometry("600x700")
         self.root.configure(bg="#2c2c2c")
 
         # --- Image variables ---
         self.current_image_path = "example.jpg"
         self.original_image = Image.open(self.current_image_path)
         self.current_image_obj = self.original_image.copy()
+
+        # Store cumulative slider values
+        self.values = {
+            "Red": 1.0,
+            "Green": 1.0,
+            "Blue": 1.0,
+            "Brightness": 1.0,
+            "Sharpness": 1.0,
+            "Saturation": 1.0,
+            "Blur": 0.0
+        }
 
         # Crop mode variables
         self.crop_mode = False
@@ -50,7 +61,7 @@ class App:
         self.right_frame.pack(side="right", expand=True, fill="both")
 
         # --- Image Canvas ---
-        self.canvas_w, self.canvas_h = 650, 450
+        self.canvas_w, self.canvas_h = 450, 450
         self.canvas = tk.Canvas(
             self.right_frame,
             width=self.canvas_w,
@@ -58,7 +69,7 @@ class App:
             bg="#2c2c2c",
             highlightthickness=0
         )
-        self.canvas.pack(pady=20)
+        self.canvas.pack(pady=20, padx=20)
         self.tk_image = None
         self.draw_image(self.current_image_obj)
 
@@ -72,6 +83,7 @@ class App:
         self.panel_frame.pack(fill="x", padx=20, pady=10)
 
         # --- Buttons ---
+        self.add_button("Open Image", self.open_image, "#2196F3")
         self.add_button("RGB", self.show_rgb_panel, "#4CAF50")
         self.add_button("Brightness", self.show_brightness_panel, "#4CAF50")
         self.add_button("Saturation", self.show_saturation_panel, "#4CAF50")
@@ -112,9 +124,18 @@ class App:
         self.offset_y = (self.canvas_h - new_h) // 2
         self.canvas.create_image(self.canvas_w // 2, self.canvas_h // 2, image=self.tk_image)
 
-    # --- Update Image ---
-    def update_image(self, func, *args):
-        img = func(self.current_image_obj.copy(), *args)
+    # --- Apply all active sliders ---
+    def apply_all_adjustments(self):
+        img = self.original_image.copy()
+        # RGB
+        img = adjust_rgb(img, self.values["Red"], self.values["Green"], self.values["Blue"])
+        # Brightness & Sharpness
+        img = adjust_brightness(img, self.values["Brightness"])
+        img = adjust_sharpness(img, self.values["Sharpness"])
+        # Saturation
+        img = adjust_saturation(img, self.values["Saturation"])
+        # Blur
+        img = adjust_blur(img, self.values["Blur"])
         self.current_image_obj = img
         self.draw_image(img)
 
@@ -145,8 +166,8 @@ class App:
         top = int((min(y1, y2) - self.offset_y) / self.scale)
         right = int((max(x1, x2) - self.offset_x) / self.scale)
         bottom = int((max(y1, y2) - self.offset_y) / self.scale)
-        self.current_image_obj = self.current_image_obj.crop((left, top, right, bottom))
-        self.draw_image(self.current_image_obj)
+        self.original_image = self.original_image.crop((left, top, right, bottom))
+        self.apply_all_adjustments()
         self.crop_mode = False
         self.rect = None
 
@@ -157,76 +178,58 @@ class App:
         sliders = {}
 
         def update_rgb(val=None):
-            img = self.current_image_obj.copy()
-            r = sliders["Red"].get()
-            g = sliders["Green"].get()
-            b = sliders["Blue"].get()
-            img = adjust_rgb(img, r, g, b)
-            self.current_image_obj = img
-            self.draw_image(img)
+            self.values["Red"] = sliders["Red"].get()
+            self.values["Green"] = sliders["Green"].get()
+            self.values["Blue"] = sliders["Blue"].get()
+            self.apply_all_adjustments()
 
         for color in ("Red", "Green", "Blue"):
             tk.Label(self.panel_frame, text=color, bg="#3a3a3a", fg="white").pack(anchor="w", padx=10)
             slider = ctk.CTkSlider(self.panel_frame, from_=0, to=2, number_of_steps=20, command=update_rgb)
-            slider.set(1.0)
+            slider.set(self.values[color])
             slider.pack(fill="x", padx=20, pady=5)
             sliders[color] = slider
 
     def show_brightness_panel(self):
         self.clear_panel()
         tk.Label(self.panel_frame, text="Brightness & Sharpness", bg="#3a3a3a", fg="white", font=("Arial", 12, "bold")).pack(pady=5)
+        sliders = {}
 
-        bright_slider = ctk.CTkSlider(self.panel_frame, from_=0, to=2, number_of_steps=20)
-        bright_slider.set(1.0)
-        bright_slider.pack(fill="x", padx=20, pady=5)
-        sharp_slider = ctk.CTkSlider(self.panel_frame, from_=0, to=3, number_of_steps=30)
-        sharp_slider.set(1.0)
-        sharp_slider.pack(fill="x", padx=20, pady=5)
+        def update(val=None):
+            self.values["Brightness"] = sliders["Brightness"].get()
+            self.values["Sharpness"] = sliders["Sharpness"].get()
+            self.apply_all_adjustments()
 
-        def update_bright_sharp(val=None):
-            img = self.current_image_obj.copy()
-            img = adjust_brightness(img, bright_slider.get())
-            img = adjust_sharpness(img, sharp_slider.get())
-            self.current_image_obj = img
-            self.draw_image(img)
-
-        bright_slider.configure(command=update_bright_sharp)
-        sharp_slider.configure(command=update_bright_sharp)
+        for label, max_val in [("Brightness", 2), ("Sharpness", 3)]:
+            tk.Label(self.panel_frame, text=label, bg="#3a3a3a", fg="white").pack(anchor="w", padx=10)
+            slider = ctk.CTkSlider(self.panel_frame, from_=0, to=max_val, number_of_steps=20, command=update)
+            slider.set(self.values[label])
+            slider.pack(fill="x", padx=20, pady=5)
+            sliders[label] = slider
 
     def show_saturation_panel(self):
         self.clear_panel()
         tk.Label(self.panel_frame, text="Saturation", bg="#3a3a3a", fg="white", font=("Arial", 12, "bold")).pack(pady=5)
-        sat_slider = ctk.CTkSlider(self.panel_frame, from_=0, to=3, number_of_steps=30)
-        sat_slider.set(1.0)
-        sat_slider.pack(fill="x", padx=20, pady=5)
-
-        def update_saturation(val):
-            img = self.current_image_obj.copy()
-            img = adjust_saturation(img, sat_slider.get())
-            self.current_image_obj = img
-            self.draw_image(img)
-
-        sat_slider.configure(command=update_saturation)
+        slider = ctk.CTkSlider(self.panel_frame, from_=0, to=3, number_of_steps=30, command=lambda val: self.update_slider("Saturation", val))
+        slider.set(self.values["Saturation"])
+        slider.pack(fill="x", padx=20, pady=5)
 
     def show_blur_panel(self):
         self.clear_panel()
         tk.Label(self.panel_frame, text="Blur", bg="#3a3a3a", fg="white", font=("Arial", 12, "bold")).pack(pady=5)
-        blur_slider = ctk.CTkSlider(self.panel_frame, from_=0, to=10, number_of_steps=20)
-        blur_slider.set(0)
-        blur_slider.pack(fill="x", padx=20, pady=5)
+        slider = ctk.CTkSlider(self.panel_frame, from_=0, to=10, number_of_steps=20, command=lambda val: self.update_slider("Blur", val))
+        slider.set(self.values["Blur"])
+        slider.pack(fill="x", padx=20, pady=5)
 
-        def update_blur(val):
-            img = self.current_image_obj.copy()
-            img = adjust_blur(img, blur_slider.get())
-            self.current_image_obj = img
-            self.draw_image(img)
-
-        blur_slider.configure(command=update_blur)
+    def update_slider(self, key, val):
+        self.values[key] = float(val)
+        self.apply_all_adjustments()
 
     # --- Extra Features ---
     def reset_image(self):
-        self.current_image_obj = self.original_image.copy()
-        self.draw_image(self.current_image_obj)
+        self.original_image = Image.open(self.current_image_path)
+        self.values = {k: 1.0 if k != "Blur" else 0.0 for k in self.values}
+        self.apply_all_adjustments()
 
     def save_as(self):
         save_path = filedialog.asksaveasfilename(
@@ -235,6 +238,20 @@ class App:
         )
         if save_path:
             self.current_image_obj.save(save_path)
+
+    def open_image(self):
+        file_path = filedialog.askopenfilename(
+            filetypes=[("Image Files", "*.png *.jpg *.bmp *.gif"), ("All files", "*.*")]
+        )
+        if file_path:
+            self.original_image = Image.open(file_path).convert("RGB")
+            self.current_image_obj = self.original_image.copy()
+
+            # Reset all slider values
+            self.values = {k: 1.0 if k != "Blur" else 0.0 for k in self.values}
+            
+            # Redraw image
+            self.apply_all_adjustments()
 
 
 
