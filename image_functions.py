@@ -36,15 +36,6 @@ def adjust_blur(img, blur=0.0):
     return img
 
 def stretch_image(img, width_factor=1.0, height_factor=1.0):
-    """
-    Stretches (scales) the given PIL.Image.Image horizontally and/or vertically.
-    Parameters:
-        img (PIL.Image.Image): Input image.
-        width_factor (float): Scaling factor for width. 1.0 = original width.
-        height_factor (float): Scaling factor for height. 1.0 = original height.
-    Returns:
-        PIL.Image.Image: The stretched image.
-    """
     if width_factor <= 0 or height_factor <= 0:
         raise ValueError("Scaling factors must be positive numbers.")
     
