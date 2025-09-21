@@ -20,7 +20,7 @@ ctk.set_default_color_theme("dark-blue")
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("Image Editor")
+        self.root.title("PyEdit")
         self.root.geometry("600x700")
         self.root.configure(bg="#2c2c2c")
         self.root.resizable(False, False)
